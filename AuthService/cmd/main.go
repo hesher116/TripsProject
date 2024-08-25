@@ -2,69 +2,40 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/go-redis/redis/v8"
 	"github.com/hesher116/MyFinalProject/AuthServsce/internal/authorization"
 	"github.com/hesher116/MyFinalProject/AuthServsce/internal/broker/nats"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/hesher116/MyFinalProject/AuthServsce/internal/config"
+	"github.com/hesher116/MyFinalProject/AuthServsce/internal/storage/mongo"
+	"github.com/hesher116/MyFinalProject/AuthServsce/internal/storage/redis"
+
 	"log"
 )
 
 func main() {
-	//err := godotenv.Load("../.env")
-	//if err != nil {
-	//	log.Fatal("Помилка завантаження .env файлу")
-	//}
-	//for _, e := range os.Environ() {
-	//	fmt.Println(e)
-	//}
 
-	//port := os.Getenv("MONGO_PORT")
-	//host := os.Getenv("MONGO_HOST")
-	//if port == "" || host == "" {
-	//	log.Fatal("Не видно MONGO_HOST або MONGO_PORT")
-	//}
-	//mongoUrl := fmt.Sprintf("mongodb://%s:%s", host, port)
-
-	mongoUrl := fmt.Sprintf("mongodb://mongo:27017")
-
-	clientOptions := options.Client().ApplyURI(mongoUrl)
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer client.Disconnect(context.TODO())
-
-	err = client.Ping(context.TODO(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Connected to MongoDB!")
+	cfg := config.LoadConfig()
 
 	ctx := context.Background()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "",
-		DB:       0,
-	})
-
-	pong, err := rdb.Ping(ctx).Result()
+	mongoClient, err := mongo.Connect(ctx, cfg.MongoHost, cfg.MongoPort)
 	if err != nil {
-		fmt.Println("Помилка підключення REDIS:", err)
-		return
+		log.Fatalf("MongoDB error: %v", err)
 	}
-	fmt.Println("Підключено до Redis:", pong)
+	defer mongoClient.Disconnect(ctx)
 
-	nc, err := nats.NewNatsClient()
+	redisClient, err := redis.Connect(ctx, cfg.RedisURL)
 	if err != nil {
-		fmt.Println("Помилка підключення NATS:", err)
-		return
+		log.Fatalf("Redis error: %v", err)
 	}
-	defer nc.Close()
+	defer redisClient.Close()
 
-	authModule := authorization.NewAuthorizationModule(client, rdb, nc)
+	natsClient, err := nats.NewNatsClient(cfg.NatsURL)
+	if err != nil {
+		log.Fatalf("Nats error: %v", err)
+	}
+	defer natsClient.Close()
+
+	authModule := authorization.NewAuthorizationModule(mongoClient, redisClient, natsClient)
 	authModule.InitNatsSubscribers()
 
 	log.Println("Server is running...")

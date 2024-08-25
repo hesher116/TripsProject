@@ -10,9 +10,13 @@ import (
 )
 
 func Connect(ctx context.Context, host, port string) (*mongo.Client, error) {
-	mongoUrl := fmt.Sprintf("mongodb://%s:%s", host, port)
+	// Формуємо URI для підключення
+	mongoURI := fmt.Sprintf("mongodb://%s:%s", host, port)
 
-	clientOptions := options.Client().ApplyURI(mongoUrl)
+	// Створюємо опції клієнта на основі URI
+	clientOptions := options.Client().ApplyURI(mongoURI)
+
+	// Використовуємо ці опції для підключення до MongoDB
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
