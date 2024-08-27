@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/hesher116/MyFinalProject/AuthServsce/internal/authorization"
 	"github.com/hesher116/MyFinalProject/AuthServsce/internal/broker/nats"
 	"github.com/hesher116/MyFinalProject/AuthServsce/internal/config"
@@ -36,7 +37,10 @@ func main() {
 	defer natsClient.Close()
 
 	authModule := authorization.NewAuthorizationModule(mongoClient, redisClient, natsClient)
-	authModule.InitNatsSubscribers()
+	err = authModule.InitNatsSubscribers()
+	if err != nil {
+		log.Fatalf("Failed to initialize NATS subscribers: %v", err)
+	}
 
 	log.Println("Server is running...")
 

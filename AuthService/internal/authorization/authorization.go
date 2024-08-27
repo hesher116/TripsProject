@@ -45,7 +45,7 @@ func (am *AuthorizationModule) InitNatsSubscribers() (err error) {
 }
 
 func (am *AuthorizationModule) RegisterNats(m *nats.Msg) {
-	log.Print("subscribe succsessfull")
+	log.Print("subscribe successful")
 	var user models.User
 	err := json.Unmarshal(m.Data, &user)
 	if err != nil {
