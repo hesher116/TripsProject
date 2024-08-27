@@ -2,42 +2,57 @@ package main
 
 import (
 	"fmt"
+	"github.com/hesher116/MyFinalProject/ApiGateway/internal/gateway"
+	"log"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
 	natsclient "github.com/hesher116/MyFinalProject/ApiGateway/internal/broker/nats"
-	"github.com/joho/godotenv"
+	"github.com/hesher116/MyFinalProject/ApiGateway/internal/config"
 	"github.com/nats-io/nats.go"
-	"net/http"
 )
 
 func main() {
-	godotenv.Load()
+	//Для релізу сервісу
+	//gin.SetMode(gin.ReleaseMode)
 
-	nc, err := natsclient.NewNatsClient()
+	cfg := config.LoadConfig()
+
+	natsClient, err := natsclient.NewNatsClient(cfg.NatsURL)
 	if err != nil {
-		fmt.Println("Error Connected to NATS:", err)
-		return
+		log.Fatalf("Nats error: %v", err)
 	}
-	defer nc.Close()
-
-	fmt.Println("Connected to NATS")
+	defer natsClient.Close()
 
 	// Ініціалізація HTTP-сервера з використанням Gin
 	router := gin.Default()
 
+	authModule := gateway.NewAuthorizationModule(natsClient)
+	err = authModule.InitNatsSubscribers()
+	if err != nil {
+		log.Fatalf("Failed to initialize NATS subscribers: %v", err)
+	}
+
 	// Маршрутизація запитів
 	router.POST("/register", func(c *gin.Context) {
-		RegisterUserNats(c, nc)
+		RegisterUserNats(c, natsClient)
 		fmt.Println("Register User Nats Success")
 	})
 
 	router.POST("/login", func(c *gin.Context) {
-		AuthUserNats(c, nc)
+		AuthUserNats(c, natsClient)
 		fmt.Println("Login User Nats Success")
 	})
 
 	// Запуск HTTP-сервера
-	router.Run(":8080")
+	log.Println("Starting server...")
+	err = router.Run(":8080")
+	if err != nil {
+		log.Fatalf("Failed to run server: %v", err)
+	}
+
+	log.Println("Server is running...")
 
 	select {}
 }
@@ -46,13 +61,13 @@ func main() {
 func RegisterUserNats(c *gin.Context, nc *nats.Conn) {
 	var jsonData map[string]interface{}
 	if err := c.ShouldBindJSON(&jsonData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble" + err.Error()})
 		return
 	}
 
 	response, err := nc.Request("UserCreateEvent", encode(jsonData), nats.DefaultTimeout)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "registration process trouble" + err.Error()})
 		return
 	}
 
@@ -63,13 +78,13 @@ func RegisterUserNats(c *gin.Context, nc *nats.Conn) {
 func AuthUserNats(c *gin.Context, nc *nats.Conn) {
 	var jsonData map[string]interface{}
 	if err := c.ShouldBindJSON(&jsonData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON(AuthUserNats) trouble" + err.Error()})
 		return
 	}
 
 	response, err := nc.Request("UserAuthEvent", encode(jsonData), nats.DefaultTimeout)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "registration process trouble" + err.Error()})
 		return
 	}
 
