@@ -2,11 +2,18 @@ package nats
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/nats-io/nats.go"
-	"os"
 )
 
-func NewNatsClient() (nc *nats.Conn, err error) {
-	fmt.Println("Connected to NATS(package nats)")
-	return nats.Connect(os.Getenv("NATS_URL"))
+func NewNatsClient(url string) (*nats.Conn, error) {
+	nc, err := nats.Connect(url)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
+	}
+
+	log.Println("Connected to NATS!")
+	return nc, nil
 }

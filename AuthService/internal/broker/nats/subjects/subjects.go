@@ -1,7 +1,8 @@
 package subjects
 
 import (
-	"os"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/config"
+	"log"
 	"strings"
 )
 
@@ -12,9 +13,14 @@ const (
 )
 
 func (sub NatsSubject) ToString() string {
+	cfg := config.LoadConfig()
+
 	subj := string(sub)
 
-	env := os.Getenv("ENVIRONMENT")
+	env := cfg.Envi
+	if env == "" {
+		log.Fatalf("ENVIRONMENT variable is not set")
+	}
 
 	return strings.Replace(subj, envTag, strings.ToLower(env), 1)
 }

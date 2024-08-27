@@ -1,4 +1,3 @@
-// internal/storage/mongo/mongo.go
 package mongo
 
 import (

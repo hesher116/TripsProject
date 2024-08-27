@@ -11,6 +11,7 @@ type Config struct {
 	MongoPort string
 	RedisURL  string
 	NatsURL   string
+	Envi      string
 }
 
 func LoadConfig() *Config {
@@ -24,6 +25,7 @@ func LoadConfig() *Config {
 		MongoPort: getEnv("MONGO_PORT", "27017"),
 		RedisURL:  getEnv("REDIS_URL", "localhost:6379"),
 		NatsURL:   getEnv("NATS_URL", "nats://localhost:4222"),
+		Envi:      getEnv("ENVIRONMENT", "prod"),
 	}
 
 	return config

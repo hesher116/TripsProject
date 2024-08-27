@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/hesher116/MyFinalProject/AuthServsce/internal/broker/nats/subjects"
-	"github.com/hesher116/MyFinalProject/AuthServsce/pkg/models"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/broker/nats/subjects"
+	"github.com/hesher116/MyFinalProject/AuthService/pkg/models"
 	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,16 +17,16 @@ import (
 )
 
 type AuthorizationModule struct {
-	db    *mongo.Client
-	cache *redis.Client
-	nats  *nats.Conn
+	mongodb *mongo.Client
+	cache   *redis.Client
+	nats    *nats.Conn
 }
 
-func NewAuthorizationModule(dbCLI *mongo.Client, cacheCLI *redis.Client, natsCLI *nats.Conn) *AuthorizationModule {
+func NewAuthorizationModule(mongodbCLI *mongo.Client, cacheCLI *redis.Client, natsCLI *nats.Conn) *AuthorizationModule {
 	return &AuthorizationModule{
-		db:    dbCLI,
-		cache: cacheCLI,
-		nats:  natsCLI,
+		mongodb: mongodbCLI,
+		cache:   cacheCLI,
+		nats:    natsCLI,
 	}
 }
 
@@ -52,7 +52,7 @@ func (am *AuthorizationModule) RegisterNats(m *nats.Msg) {
 		err = am.nats.Publish(m.Reply, []byte(fmt.Sprintf(`{"error": "Invalid data: %v"}`, err)))
 		return
 	}
-
+	// why?
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	port := os.Getenv("MONGO_PORT")
@@ -64,7 +64,7 @@ func (am *AuthorizationModule) RegisterNats(m *nats.Msg) {
 		log.Printf("Error connecting to MongoDB: %v", err)
 	}
 
-	DB := client.Database("project")
+	mongodbCLI := client.Database("project")
 	log.Printf("Connected to MongoDB")
 
 	// Перевірка, чи користувач вже існує в кеші
@@ -75,7 +75,7 @@ func (am *AuthorizationModule) RegisterNats(m *nats.Msg) {
 	}
 
 	// Вставка даних користувача в MongoDB
-	_, err = DB.Collection("users").InsertOne(ctx, user)
+	_, err = mongodbCLI.Collection("users").InsertOne(ctx, user)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			am.nats.Publish(m.Reply, []byte(`{"error": "User already exists"}`))
@@ -118,16 +118,16 @@ func (am *AuthorizationModule) AuthorizationNats(m *nats.Msg) {
 
 	ctx := context.Background()
 
-	// 1. Спроба отримати дані користувача з Redis
+	// Спроба отримати дані користувача з Redis
 	userRedisData, err := am.get(ctx, userID)
 	if err == nil && userRedisData != "" {
 		_ = m.Respond([]byte(userRedisData))
 		return
 	}
 
-	// 2. Якщо в Redis даних немає, спробуємо знайти їх в MongoDB
+	// Якщо в Redis даних немає, спробуємо знайти їх в MongoDB
 	var userMongoData bson.M
-	err = am.db.Database("project").Collection("users").FindOne(ctx, bson.D{{"_id", userID}}).Decode(&userMongoData)
+	err = am.mongodb.Database("project").Collection("users").FindOne(ctx, bson.D{{"_id", userID}}).Decode(&userMongoData)
 	if err == mongo.ErrNoDocuments {
 		_ = m.Respond([]byte("User not found in Database"))
 		return
@@ -154,6 +154,7 @@ func (am *AuthorizationModule) AuthorizationNats(m *nats.Msg) {
 	_ = m.Respond(userData)
 }
 
+// Зв'язати з інтерфейсами!!!
 func (am *AuthorizationModule) set(ctx context.Context, key string, value any, expiration ...time.Duration) error {
 	var exp time.Duration
 	if len(expiration) > 0 {

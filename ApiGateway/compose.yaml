@@ -4,10 +4,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    volumes:
+      - ./.env:/cmd/.env:rw
     ports:
       - "50051:50051"
     depends_on:
-      - db
       - nats
   nats:
     image: nats:latest
@@ -15,8 +16,3 @@ services:
     ports:
       - "4222:4222"
       - "8222:8222"
-  db:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6379:6379"

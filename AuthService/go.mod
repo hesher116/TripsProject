@@ -1,4 +1,4 @@
-module github.com/hesher116/MyFinalProject/AuthServsce
+module github.com/hesher116/MyFinalProject/AuthService
 
 go 1.21
 

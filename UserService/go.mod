@@ -1,4 +1,4 @@
-module github.com/hesher116/MyFinalProject/UserServsce
+module github.com/hesher116/MyFinalProject/UserService
 
 go 1.21
 

@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 
-	"github.com/hesher116/MyFinalProject/AuthServsce/internal/authorization"
-	"github.com/hesher116/MyFinalProject/AuthServsce/internal/broker/nats"
-	"github.com/hesher116/MyFinalProject/AuthServsce/internal/config"
-	"github.com/hesher116/MyFinalProject/AuthServsce/internal/storage/mongo"
-	"github.com/hesher116/MyFinalProject/AuthServsce/internal/storage/redis"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/authorization"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/broker/nats"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/config"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/storage/mongo"
+	"github.com/hesher116/MyFinalProject/AuthService/internal/storage/redis"
 
 	"log"
 )
@@ -42,7 +42,7 @@ func main() {
 		log.Fatalf("Failed to initialize NATS subscribers: %v", err)
 	}
 
-	log.Println("Server is running...")
+	log.Println("Initialized NATS subscribers...")
 
 	select {}
 }

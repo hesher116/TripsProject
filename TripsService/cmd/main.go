@@ -2,71 +2,46 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/go-redis/redis/v8"
-	"github.com/hesher116/MyFinalProject/TripsServsce/internal/trips"
-	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
-	"os"
 
-	"github.com/hesher116/MyFinalProject/TripsServsce/internal/broker/nats"
+	"github.com/hesher116/MyFinalProject/TripsService/internal/broker/nats"
+	"github.com/hesher116/MyFinalProject/TripsService/internal/config"
+	"github.com/hesher116/MyFinalProject/TripsService/internal/storage/mongo"
+	"github.com/hesher116/MyFinalProject/TripsService/internal/storage/redis"
+	"github.com/hesher116/MyFinalProject/TripsService/internal/trips"
 )
 
 func main() {
-	err := godotenv.Load("../.env")
-	if err != nil {
-		log.Fatal("Помилка завантаження .env файлу")
-	}
-	for _, e := range os.Environ() {
-		fmt.Println(e)
-	}
+
+	cfg := config.LoadConfig()
 
 	ctx := context.Background()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_URL"),
-		Password: "",
-		DB:       0,
-	})
-
-	pong, err := rdb.Ping(ctx).Result()
+	mongoClient, err := mongo.Connect(ctx, cfg.MongoHost, cfg.MongoPort)
 	if err != nil {
-		fmt.Println("Помилка підключення REDIS:", err)
-		return
+		log.Fatalf("MongoDB error: %v", err)
 	}
-	fmt.Println("Підключено до Redis:", pong)
+	defer mongoClient.Disconnect(ctx)
 
-	port := os.Getenv("MONGO_PORT")
-	host := os.Getenv("MONGO_HOST")
-	if port == "" || host == "" {
-		log.Fatal("Не видно MONGO_HOST або MONGO_PORT")
-	}
-	mongoUrl := fmt.Sprintf("mongodb://%s:%s", host, port)
-
-	clientOptions := options.Client().ApplyURI(mongoUrl)
-	cli, err := mongo.Connect(context.TODO(), clientOptions)
+	redisClient, err := redis.Connect(ctx, cfg.RedisURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Redis error: %v", err)
 	}
-	defer cli.Disconnect(context.TODO())
+	defer redisClient.Close()
 
-	err = cli.Ping(context.TODO(), nil)
+	natsClient, err := nats.NewNatsClient(cfg.NatsURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Nats error: %v", err)
 	}
-	log.Println("Connected to MongoDB!")
+	defer natsClient.Close()
 
-	nc, err := nats.NewNatsClient()
+	tripsModule := trips.NewTripsModule(mongoClient, redisClient, natsClient)
+	err = tripsModule.InitNatsSubscribers()
 	if err != nil {
-		fmt.Println("Помилка підключення NATS:", err)
-		return
+		log.Fatalf("Failed to initialize NATS subscribers: %v", err)
 	}
-	defer nc.Close()
 
-	tripsModule := trips.NewTripsModule(cli, nc, rdb)
-	tripsModule.InitNatsSubscribers()
+	log.Println("Initialized NATS subscribers...")
 
 	select {}
 }

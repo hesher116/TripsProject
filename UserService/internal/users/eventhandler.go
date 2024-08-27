@@ -3,8 +3,9 @@ package users
 import (
 	"context"
 	"encoding/json"
-	"github.com/hesher116/MyFinalProject/UserServsce/internal/broker/nats/subjects"
-	"github.com/hesher116/MyFinalProject/UserServsce/pkg/models"
+	"fmt"
+	"github.com/hesher116/MyFinalProject/UserService/internal/broker/nats/subjects"
+	"github.com/hesher116/MyFinalProject/UserService/pkg/models"
 	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -44,12 +45,14 @@ func (um *UserModule) UserCreateNats(m *nats.Msg) {
 	err := json.Unmarshal(m.Data, &user)
 	if err != nil {
 		log.Printf("Error unmarshalling UserCreateEvent: %v", err)
+		m.Respond([]byte(fmt.Sprintf(`{"error": "Invalid data: %v"}`, err)))
 		return
 	}
 
 	// Перевірка даних
 	if user.Username == "" || user.Email == "" || user.Password == "" {
 		log.Println("Invalid user data")
+		m.Respond([]byte(`{"error": "Invalid user data"}`))
 		return
 	}
 
@@ -58,10 +61,13 @@ func (um *UserModule) UserCreateNats(m *nats.Msg) {
 	uId, err := collection.InsertOne(context.TODO(), user)
 	if err != nil {
 		log.Printf("Error inserting user into database: %v", err)
+		m.Respond([]byte(fmt.Sprintf(`{"error": "Error inserting user: %v"}`, err)))
 		return
 	}
 	user.ID = (uId.InsertedID).(primitive.ObjectID)
 	log.Printf("User created: %s", user.Username)
+	m.Respond([]byte(fmt.Sprintf(`{"status": "User created", "userID": "%s"}`, user.ID.Hex())))
+
 }
 
 func (um *UserModule) UserEditNats(m *nats.Msg) {
@@ -75,6 +81,7 @@ func (um *UserModule) UserEditNats(m *nats.Msg) {
 	err := json.Unmarshal(m.Data, &updateData)
 	if err != nil {
 		log.Printf("Error unmarshalling UserEditEvent: %v", err)
+		m.Respond([]byte(fmt.Sprintf(`{"error": "Invalid data: %v"}`, err)))
 		return
 	}
 
@@ -88,12 +95,14 @@ func (um *UserModule) UserEditNats(m *nats.Msg) {
 	err = collection.FindOne(ctx, bson.M{"_id": updateData.ID}).Decode(&existingUser)
 	if err != nil {
 		log.Printf("Error finding user in database: %v", err)
+		m.Respond([]byte(fmt.Sprintf(`{"error": "User not found: %v"}`, err)))
 		return
 	}
 
 	// Перевірка старого пароля
 	if updateData.OldPassword != "" && updateData.OldPassword != existingUser.Password {
 		log.Println("Old password does not match")
+		m.Respond([]byte(`{"error": "Old password does not match"}`))
 		return
 	}
 
@@ -113,9 +122,12 @@ func (um *UserModule) UserEditNats(m *nats.Msg) {
 		_, err = collection.UpdateOne(ctx, bson.M{"_id": updateData.ID}, bson.M{"$set": update})
 		if err != nil {
 			log.Printf("Error updating user in database: %v", err)
+			m.Respond([]byte(fmt.Sprintf(`{"error": "Failed to update user: %v"}`, err)))
 			return
 		}
 
 		log.Printf("User updated: %s", updateData.ID.Hex())
+		m.Respond([]byte(fmt.Sprintf(`{"status": "User updated", "userID": "%s"}`, updateData.ID.Hex())))
+
 	}
 }

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/hesher116/MyFinalProject/TripsServsce/internal/broker/nats/subjects"
-	"github.com/hesher116/MyFinalProject/TripsServsce/pkg/models"
+	"github.com/hesher116/MyFinalProject/TripsService/internal/broker/nats/subjects"
+	"github.com/hesher116/MyFinalProject/TripsService/pkg/models"
 	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -21,11 +21,11 @@ type TripsModule struct {
 	redis *redis.Client
 }
 
-func NewTripsModule(mongodbCLI *mongo.Client, natsCLI *nats.Conn, redisCLI *redis.Client) *TripsModule {
+func NewTripsModule(mongodbCLI *mongo.Client, redisCLI *redis.Client, natsCLI *nats.Conn) *TripsModule {
 	return &TripsModule{
 		db:    mongodbCLI,
-		nats:  natsCLI,
 		redis: redisCLI,
+		nats:  natsCLI,
 	}
 }
 
@@ -40,12 +40,12 @@ func (tm *TripsModule) InitNatsSubscribers() (err error) {
 		return err
 	}
 
-	_, err = tm.nats.Subscribe(subjects.TripDeleteEvent.ToString(), tm.TripDeleteNats)
+	_, err = tm.nats.Subscribe(subjects.TripGetEvent.ToString(), tm.TripGetNats)
 	if err != nil {
 		return err
 	}
 
-	_, err = tm.nats.Subscribe(subjects.TripGetEvent.ToString(), tm.TripGetNats)
+	_, err = tm.nats.Subscribe(subjects.TripDeleteEvent.ToString(), tm.TripDeleteNats)
 	if err != nil {
 		return err
 	}
@@ -183,6 +183,96 @@ func (tm *TripsModule) TripDeleteNats(m *nats.Msg) {
 	tm.redis.Del(ctx, cacheKey)
 
 	tm.nats.Publish(m.Reply, []byte("Trip deleted successfully"))
+}
+
+func (tm *TripsModule) TripJoinNats(m *nats.Msg) {
+	var joinData struct {
+		TripID primitive.ObjectID `json:"trip_id"`
+		UserID primitive.ObjectID `json:"user_id"`
+	}
+	err := json.Unmarshal(m.Data, &joinData)
+	if err != nil {
+		tm.respondWithError(m, fmt.Sprintf("Invalid data: %v", err))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Отримуємо інформацію про поїздку з MongoDB
+	var trip models.Trip
+	err = tm.db.Database("project").Collection("trips").FindOne(ctx, bson.M{"_id": joinData.TripID}).Decode(&trip)
+	if err != nil {
+		tm.respondWithError(m, fmt.Sprintf("Failed to find trip: %v", err))
+		return
+	}
+
+	// Додаємо користувача до списку пасажирів
+	trip.PassengerID = joinData.UserID
+
+	// Оновлюємо дані поїздки в MongoDB
+	_, err = tm.db.Database("project").Collection("trips").UpdateOne(ctx, bson.M{"_id": trip.ID}, bson.M{"$set": trip})
+	if err != nil {
+		tm.respondWithError(m, fmt.Sprintf("Failed to update trip: %v", err))
+		return
+	}
+
+	// Оновлюємо кеш в Redis
+	cacheKey := fmt.Sprintf("trip:%s", trip.ID.Hex())
+	tripJson, _ := json.Marshal(trip)
+	tm.redis.Set(ctx, cacheKey, tripJson, 10*time.Minute)
+
+	// Відправляємо відповідь про успішне приєднання
+	response, _ := json.Marshal(map[string]string{"status": "User joined trip successfully", "tripID": trip.ID.Hex()})
+	tm.nats.Publish(m.Reply, response)
+}
+
+func (tm *TripsModule) TripCancelNats(m *nats.Msg) {
+	var cancelData struct {
+		TripID primitive.ObjectID `json:"trip_id"`
+		UserID primitive.ObjectID `json:"user_id"`
+	}
+	err := json.Unmarshal(m.Data, &cancelData)
+	if err != nil {
+		tm.respondWithError(m, fmt.Sprintf("Invalid data: %v", err))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Отримуємо інформацію про поїздку з MongoDB
+	var trip models.Trip
+	err = tm.db.Database("project").Collection("trips").FindOne(ctx, bson.M{"_id": cancelData.TripID}).Decode(&trip)
+	if err != nil {
+		tm.respondWithError(m, fmt.Sprintf("Failed to find trip: %v", err))
+		return
+	}
+
+	// Перевіряємо права користувача (тільки водій може скасувати поїздку)
+	if trip.DriverID != cancelData.UserID {
+		tm.respondWithError(m, "Only the driver can cancel the trip")
+		return
+	}
+
+	// Оновлюємо статус поїздки на "canceled"
+	trip.Status = "canceled"
+
+	// Оновлюємо дані поїздки в MongoDB
+	_, err = tm.db.Database("project").Collection("trips").UpdateOne(ctx, bson.M{"_id": trip.ID}, bson.M{"$set": trip})
+	if err != nil {
+		tm.respondWithError(m, fmt.Sprintf("Failed to cancel trip: %v", err))
+		return
+	}
+
+	// Оновлюємо кеш в Redis
+	cacheKey := fmt.Sprintf("trip:%s", trip.ID.Hex())
+	tripJson, _ := json.Marshal(trip)
+	tm.redis.Set(ctx, cacheKey, tripJson, 10*time.Minute)
+
+	// Відправляємо відповідь про успішне скасування
+	response, _ := json.Marshal(map[string]string{"status": "Trip canceled successfully", "tripID": trip.ID.Hex()})
+	tm.nats.Publish(m.Reply, response)
 }
 
 func (tm *TripsModule) respondWithError(m *nats.Msg, errorMsg string) {

@@ -2,52 +2,38 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/hesher116/MyFinalProject/UserServsce/internal/users"
-	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/hesher116/MyFinalProject/UserService/internal/broker/nats"
+	"github.com/hesher116/MyFinalProject/UserService/internal/config"
+	"github.com/hesher116/MyFinalProject/UserService/internal/storage/mongo"
+	"github.com/hesher116/MyFinalProject/UserService/internal/users"
 	"log"
-	"os"
-
-	"github.com/hesher116/MyFinalProject/UserServsce/internal/broker/nats"
 )
 
 func main() {
-	err := godotenv.Load()
+
+	cfg := config.LoadConfig()
+
+	ctx := context.Background()
+
+	mongoClient, err := mongo.Connect(ctx, cfg.MongoHost, cfg.MongoPort)
 	if err != nil {
-		log.Fatal("Помилка завантаження .env файлу")
+		log.Fatalf("MongoDB error: %v", err)
 	}
-	for _, e := range os.Environ() {
-		fmt.Println(e)
-	}
+	defer mongoClient.Disconnect(ctx)
 
-	port := os.Getenv("MONGO_PORT")
-	host := os.Getenv("MONGO_HOST")
-	mongoUrl := fmt.Sprintf("mongodb://%s:%s", host, port)
-
-	clientOptions := options.Client().ApplyURI(mongoUrl)
-	client, err := mongo.Connect(context.TODO(), clientOptions)
+	natsClient, err := nats.NewNatsClient(cfg.NatsURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Nats error: %v", err)
 	}
-	defer client.Disconnect(context.TODO())
+	defer natsClient.Close()
 
-	err = client.Ping(context.TODO(), nil)
+	userModule := users.NewUserModule(mongoClient, natsClient)
+	err = userModule.InitNatsSubscribers()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to initialize NATS subscribers: %v", err)
 	}
-	log.Println("Connected to MongoDB!")
 
-	nc, err := nats.NewNatsClient()
-	if err != nil {
-		fmt.Println("Помилка підключення NATS:", err)
-		return
-	}
-	defer nc.Close()
-
-	userModule := users.NewUserModule(client, nc)
-	userModule.InitNatsSubscribers()
+	log.Println("Initialized NATS subscribers...")
 
 	select {}
 }

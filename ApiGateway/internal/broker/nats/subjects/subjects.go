@@ -1,7 +1,8 @@
 package subjects
 
 import (
-	"os"
+	"github.com/hesher116/MyFinalProject/ApiGateway/internal/config"
+	"log"
 	"strings"
 )
 
@@ -12,15 +13,20 @@ const (
 )
 
 func (sub NatsSubject) ToString() string {
+	cfg := config.LoadConfig()
+
 	subj := string(sub)
 
-	env := os.Getenv("ENVIRONMENT")
+	env := cfg.Envi
+	if env == "" {
+		log.Fatalf("ENVIRONMENT variable is not set")
+	}
 
 	return strings.Replace(subj, envTag, strings.ToLower(env), 1)
 }
 
 // subjects
 const (
-	UserRegEvent  NatsSubject = "project.<environment>.trips.user.reg"
-	UserAuthEvent NatsSubject = "project.<environment>.trips.user.auth"
+	UserRegEvent  NatsSubject = "project.<environment>.trips.api-user.register"
+	UserAuthEvent NatsSubject = "project.<environment>.trips.api-user.authorization"
 )

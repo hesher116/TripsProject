@@ -5,6 +5,8 @@ import (
 	"github.com/hesher116/MyFinalProject/ApiGateway/internal/gateway"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
@@ -14,8 +16,14 @@ import (
 )
 
 func main() {
-	//Для релізу сервісу
-	//gin.SetMode(gin.ReleaseMode)
+	moveToRelease, err := strconv.ParseBool(os.Getenv("MOVE_TO_RELEASE"))
+	if err != nil {
+		log.Printf("Invalid value for MOVE_TO_RELEASE: %v.", err)
+	}
+
+	if moveToRelease {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	cfg := config.LoadConfig()
 
@@ -111,3 +119,8 @@ func decode(data []byte) map[string]interface{} {
 	}
 	return result
 }
+
+//{
+//"username":"Maksim",
+//"password":"123456"
+//}

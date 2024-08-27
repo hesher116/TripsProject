@@ -1,4 +1,4 @@
-module github.com/hesher116/MyFinalProject/TripsServsce
+module github.com/hesher116/MyFinalProject/TripsService
 
 go 1.21
 
