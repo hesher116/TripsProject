@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/hesher116/MyFinalProject/ApiGateway/internal/gateway"
+	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"strconv"
@@ -12,12 +13,14 @@ import (
 )
 
 func main() {
+	godotenv.Load()
 	moveToRelease, err := strconv.ParseBool(os.Getenv("MOVE_TO_RELEASE"))
 	if err != nil {
 		log.Printf("Invalid value for MOVE_TO_RELEASE: %v.", err)
 	}
 
 	if moveToRelease {
+		log.Printf("MOVE_TO_RELEASE value: %s", os.Getenv("MOVE_TO_RELEASE"))
 		gin.SetMode(gin.ReleaseMode)
 	}
 
