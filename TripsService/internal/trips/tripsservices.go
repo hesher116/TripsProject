@@ -50,15 +50,15 @@ func (tm *TripsModule) InitNatsSubscribers() (err error) {
 		return err
 	}
 
-	//_, err = tm.nats.Subscribe(subjects.TripJoinEvent.ToString(), tm.TripJoinNats)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//_, err = tm.nats.Subscribe(subjects.TripCancelEvent.ToString(), tm.TripCancelNats)
-	//if err != nil {
-	//	return err
-	//}
+	_, err = tm.nats.Subscribe(subjects.TripJoinEvent.ToString(), tm.TripJoinNats)
+	if err != nil {
+		return err
+	}
+
+	_, err = tm.nats.Subscribe(subjects.TripCancelEvent.ToString(), tm.TripCancelNats)
+	if err != nil {
+		return err
+	}
 
 	return
 }

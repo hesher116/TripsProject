@@ -28,5 +28,5 @@ func (sub NatsSubject) ToString() string {
 // subjects
 const (
 	UserRegister      NatsSubject = "project.<environment>.trips.auth.register"
-	UserAuthorization NatsSubject = "project.<environment>.trips.auth.authorization"
+	UserAuthorization NatsSubject = "project.<environment>.trips.auth.Authorization"
 )

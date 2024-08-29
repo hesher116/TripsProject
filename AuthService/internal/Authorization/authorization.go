@@ -1,4 +1,4 @@
-package authorization
+package Authorization
 
 import (
 	"context"
@@ -137,7 +137,7 @@ func (am *AuthorizationModule) AuthorizationNats(m *nats.Msg) {
 		return
 	}
 
-	// 3. Якщо користувача знайдено в MongoDB, збережемо його в Redis
+	// Якщо користувача знайдено в MongoDB, збережемо його в Redis
 	userData, err := json.Marshal(userMongoData)
 	if err != nil {
 		log.Printf("Error marshalling user data: %v", err)
@@ -150,7 +150,7 @@ func (am *AuthorizationModule) AuthorizationNats(m *nats.Msg) {
 		log.Printf("Error caching user data: %v", err)
 	}
 
-	// 4. Відправляємо відповідь з даними користувача
+	// Відправляємо відповідь з даними користувача
 	_ = m.Respond(userData)
 }
 
