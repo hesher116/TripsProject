@@ -3,21 +3,26 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 	"github.com/hesher116/MyFinalProject/ApiGateway/internal/broker/nats/subjects"
 	"github.com/nats-io/nats.go"
 )
 
-type gatewayModule struct {
+type GatewayModule struct {
 	nats *nats.Conn
 }
 
-func NewGatewayModule(natsCLI *nats.Conn) *gatewayModule {
-	return &gatewayModule{
+// NewGatewayModule створює новий GatewayModule з підключенням до NATS
+func NewGatewayModule(natsCLI *nats.Conn) *GatewayModule {
+	return &GatewayModule{
 		nats: natsCLI,
 	}
 }
 
-func (gm *gatewayModule) InitNatsSubscribers() (err error) {
+// InitNatsSubscribers ініціалізує підписників NATS для обробки подій
+func (gm *GatewayModule) InitNatsSubscribers() (err error) {
 	_, err = gm.nats.Subscribe(subjects.UserRegEvent.ToString(), gm.HandleRegisterNats)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to UserRegEvent: %w", err)
@@ -28,45 +33,113 @@ func (gm *gatewayModule) InitNatsSubscribers() (err error) {
 		return fmt.Errorf("failed to subscribe to UserAuthEvent: %w", err)
 	}
 
-	return
+	return nil
 }
 
-//// Обробляє реєстрацію користувача через HTTP-запит
-//func (am *gatewayModule) RegisterUserNats(c *gin.Context) {
-//	var jsonData map[string]interface{}
-//	if err := c.ShouldBindJSON(&jsonData); err != nil {
-//		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble: " + err.Error()})
-//		return
-//	}
-//
-//	response, err := am.nats.Request("UserCreateEvent", encode(jsonData), nats.DefaultTimeout)
-//	if err != nil {
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": "registration process trouble: " + err.Error()})
-//		return
-//	}
-//
-//	c.JSON(http.StatusOK, decode(response.Data))
-//}
-//
-//// Обробляє авторизацію користувача через HTTP-запит
-//func (am *gatewayModule) AuthUserNats(c *gin.Context) {
-//	var jsonData map[string]interface{}
-//	if err := c.ShouldBindJSON(&jsonData); err != nil {
-//		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON(AuthUserNats) trouble: " + err.Error()})
-//		return
-//	}
-//
-//	response, err := am.nats.Request("UserAuthEvent", encode(jsonData), nats.DefaultTimeout)
-//	if err != nil {
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": "authorization process trouble: " + err.Error()})
-//		return
-//	}
-//
-//	c.JSON(http.StatusOK, decode(response.Data))
-//}
+// RegisterUserNats обробляє реєстрацію користувача через HTTP-запит
+func (gm *GatewayModule) RegisterUserNats(c *gin.Context) {
+	var jsonData map[string]interface{}
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble: " + err.Error()})
+		return
+	}
 
-// HandleRegisterNats Обробляє реєстрацію користувача через NATS повідомлення
-func (gm *gatewayModule) HandleRegisterNats(msg *nats.Msg) {
+	response, err := gm.nats.Request("UserCreateEvent", encode(jsonData), nats.DefaultTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "registration process trouble: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, decode(response.Data))
+}
+
+// AuthUserNats обробляє авторизацію користувача через HTTP-запит
+func (gm *GatewayModule) AuthUserNats(c *gin.Context) {
+	var jsonData map[string]interface{}
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON(AuthUserNats) trouble: " + err.Error()})
+		return
+	}
+
+	response, err := gm.nats.Request("UserAuthEvent", encode(jsonData), nats.DefaultTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "authorization process trouble: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, decode(response.Data))
+}
+
+// CreateTripNats обробляє створення поїздки через HTTP-запит
+func (gm *GatewayModule) CreateTripNats(c *gin.Context) {
+	var jsonData map[string]interface{}
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble: " + err.Error()})
+		return
+	}
+
+	response, err := gm.nats.Request("TripCreateEvent", encode(jsonData), nats.DefaultTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "trip creation process trouble: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, decode(response.Data))
+}
+
+// UpdateTripNats обробляє оновлення поїздки через HTTP-запит
+func (gm *GatewayModule) UpdateTripNats(c *gin.Context) {
+	var jsonData map[string]interface{}
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble: " + err.Error()})
+		return
+	}
+
+	response, err := gm.nats.Request("TripUpdateEvent", encode(jsonData), nats.DefaultTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "trip update process trouble: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, decode(response.Data))
+}
+
+// DeleteTripNats обробляє видалення поїздки через HTTP-запит
+func (gm *GatewayModule) DeleteTripNats(c *gin.Context) {
+	var jsonData map[string]interface{}
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble: " + err.Error()})
+		return
+	}
+
+	response, err := gm.nats.Request("TripDeleteEvent", encode(jsonData), nats.DefaultTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "trip deletion process trouble: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, decode(response.Data))
+}
+
+// GetTripNats обробляє отримання інформації про поїздку через HTTP-запит
+func (gm *GatewayModule) GetTripNats(c *gin.Context) {
+	var jsonData map[string]interface{}
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON trouble: " + err.Error()})
+		return
+	}
+
+	response, err := gm.nats.Request("TripGetEvent", encode(jsonData), nats.DefaultTimeout)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "trip retrieval process trouble: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, decode(response.Data))
+}
+
+// HandleRegisterNats обробляє реєстрацію користувача через NATS повідомлення
+func (gm *GatewayModule) HandleRegisterNats(msg *nats.Msg) {
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal(msg.Data, &jsonData); err != nil {
 		fmt.Println("JSON trouble:", err)
@@ -83,8 +156,8 @@ func (gm *gatewayModule) HandleRegisterNats(msg *nats.Msg) {
 	_ = msg.Respond(response.Data)
 }
 
-// HandleAuthorizationNats Обробляє авторизацію користувача через NATS повідомлення
-func (gm *gatewayModule) HandleAuthorizationNats(msg *nats.Msg) {
+// HandleAuthorizationNats обробляє авторизацію користувача через NATS повідомлення
+func (gm *GatewayModule) HandleAuthorizationNats(msg *nats.Msg) {
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal(msg.Data, &jsonData); err != nil {
 		fmt.Println("JSON trouble:", err)

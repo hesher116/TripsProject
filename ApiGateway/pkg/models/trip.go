@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -17,22 +16,4 @@ type Trip struct {
 	StartTime   time.Time          `json:"start_time" bson:"start_time"`                         // Час початку поїздки
 	EndTime     time.Time          `json:"end_time" bson:"end_time"`                             // Час закінчення поїздки (може бути порожнім)
 	Status      string             `json:"status" bson:"status"`                                 // Статус поїздки (наприклад, "scheduled", "completed", "cancelled")
-}
-
-// ValidateTrip перевіряє коректність даних поїздки
-func ValidateTrip(trip *Trip) error {
-	if trip.DriverID.IsZero() {
-		return fmt.Errorf("driver ID is required")
-	}
-	if trip.StartPoint == "" {
-		return fmt.Errorf("start point is required")
-	}
-	if trip.EndPoint == "" {
-		return fmt.Errorf("end point is required")
-	}
-	if trip.StartTime.IsZero() {
-		return fmt.Errorf("start time is required")
-	}
-
-	return nil
 }

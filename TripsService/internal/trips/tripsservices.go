@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/hesher116/MyFinalProject/TripsService/internal/broker/nats/subjects"
 	"github.com/hesher116/MyFinalProject/TripsService/pkg/models"
+
+	"github.com/hesher116/MyFinalProject/TripsService/internal/broker/nats/subjects"
 	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

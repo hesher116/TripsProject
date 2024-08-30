@@ -2,8 +2,10 @@ package main
 
 import (
 	"github.com/hesher116/MyFinalProject/ApiGateway/internal/gateway"
+	"github.com/hesher116/MyFinalProject/ApiGateway/internal/handlers"
 	"github.com/joho/godotenv"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -36,25 +38,42 @@ func main() {
 	router := gin.Default()
 
 	gatewayModule := gateway.NewGatewayModule(natsClient)
-	err = gatewayModule.InitNatsSubscribers()
-	if err != nil {
-		log.Fatalf("Failed to initialize NATS subscribers: %v", err)
-	}
+	authHandler := handlers.NewAuthHandler(natsClient)
+	tripsHandler := handlers.NewTripsHandler(natsClient)
+	userHandler := handlers.NewUserHandler(natsClient)
 
-	//// Маршрутизація запитів
-	//router.POST("/register", func(c *gin.Context) {
-	//	gatewayModule.RegisterUserNats(c)
-	//	fmt.Println("Register User Nats Success")
-	//})
-	//
-	//router.POST("/login", func(c *gin.Context) {
-	//	gatewayModule.AuthUserNats(c)
-	//	fmt.Println("Login User Nats Success")
-	//})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, World!"))
+	})
+	http.ListenAndServe(":3000", nil)
+
+	// Визначення маршрутів для Gateway
+	router.POST("/gateway/register", gatewayModule.RegisterUserNats)
+	router.POST("/gateway/login", gatewayModule.AuthUserNats)
+	router.POST("/gateway/trips/create", gatewayModule.CreateTripNats)
+	router.POST("/gateway/trips/update", gatewayModule.UpdateTripNats)
+	router.POST("/gateway/trips/delete", gatewayModule.DeleteTripNats)
+	router.POST("/gateway/trips/get", gatewayModule.GetTripNats)
+
+	// Визначення маршрутів для Authorization
+	router.POST("/auth/register", authHandler.UserRegister)
+	router.POST("/auth/login", authHandler.UserAuthorization)
+
+	// Визначення маршрутів для Trips
+	router.POST("/trips/create", tripsHandler.CreateTrip)
+	router.POST("/trips/update", tripsHandler.UpdateTrip)
+	router.POST("/trips/get", tripsHandler.GetTrip)
+	router.POST("/trips/delete", tripsHandler.DeleteTrip)
+	router.POST("/trips/join", tripsHandler.JoinTrip)
+	router.POST("/trips/cancel", tripsHandler.CancelTrip)
+
+	// Визначення маршрутів для Users
+	router.POST("/users/create", userHandler.UserCreate)
+	router.POST("/users/edit", userHandler.UserEdit)
 
 	// Запуск HTTP-сервера
 	log.Println("Starting server...")
-	err = router.Run(":8080")
+	err = router.Run(":3000")
 	if err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}
