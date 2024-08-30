@@ -3,7 +3,6 @@ package models
 import (
 	"errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"time"
 )
 
 type Trip struct {
@@ -15,6 +14,7 @@ type Trip struct {
 	Status      string             `json:"status" bson:"status"`
 }
 
+// ValidateTrip
 func ValidateTrip(trip *Trip) error {
 	if trip.DriverID.IsZero() {
 		return errors.New("driver ID is required")
@@ -31,23 +31,4 @@ func ValidateTrip(trip *Trip) error {
 	if trip.Status == "" {
 		return errors.New("status is required")
 	}
-	if trip.Status != "active" && trip.Status != "completed" && trip.Status != "canceled" {
-		return errors.New("status must be one of the following: active, completed, canceled")
-	}
-
-	startTime, err := time.Parse(time.RFC3339, trip.Start)
-	if err != nil {
-		return errors.New("invalid start date format")
-	}
-
-	endTime, err := time.Parse(time.RFC3339, trip.End)
-	if err != nil {
-		return errors.New("invalid end date format")
-	}
-
-	if startTime.After(endTime) {
-		return errors.New("start date must be before or equal to end date")
-	}
-
-	return nil
 }
